@@ -1,95 +1,65 @@
+// src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/AuthStore'
 
-// Eager loading cho các trang quan trọng (không lazy)
+// Layouts
+import AdminLayout from '@/layouts/AdminLayout.vue'
+
+// Pages
 import HomePage from '@/views/customer/HomePage.vue'
 import Login from '@/views/auth/Login.vue'
 import Register from '@/views/auth/Register.vue'
-
-// Lazy loading cho các trang ít dùng
-const MyTickets = () => import('@/views/customer/MyTickets.vue')
-const Booking = () => import('@/views/customer/Booking.vue')
+import AdminDashboard from '@/views/admin/Dashboard.vue'
 
 const routes = [
+  // Customer Routes
+  { path: '/', name: 'Home', component: HomePage },
+  { path: '/my-tickets', component: () => import('@/views/customer/MyTickets.vue'), meta: { requiresAuth: true } },
+  { path: '/booking/:tripId', component: () => import('@/views/customer/Booking.vue'), meta: { requiresAuth: true } },
+
+  // Auth
+  { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
+  { path: '/register', name: 'Register', component: Register, meta: { guest: true } },
+
+  // Admin Routes - DÙNG LAYOUT RIÊNG
   {
-    path: '/',
-    name: 'Home',
-    component: HomePage,
-    meta: { 
-      title: 'Trang chủ - FUTA Bus Lines'
-    }
+    path: '/admin',
+    component: AdminLayout,
+    meta: { requiresAdmin: true },
+    children: [
+      { path: '', name: 'AdminDashboard', component: AdminDashboard },
+      { path: 'users', component: () => import('@/views/admin/Users.vue') },
+      { path: 'buses', component: () => import('@/views/admin/Buses.vue') },
+      { path: 'routes', component: () => import('@/views/admin/Routes.vue') },
+      { path: 'trips', component: () => import('@/views/admin/Trips.vue') },
+      { path: 'tickets', component: () => import('@/views/admin/Tickets.vue') },
+      { path: 'payments', component: () => import('@/views/admin/Payments.vue') },
+    ]
   },
-  {
-    path: '/login',
-    name: 'Login',
-    component: Login,
-    meta: { 
-      guest: true,
-      title: 'Đăng nhập - FUTA Bus Lines'
-    }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: Register,
-    meta: { 
-      guest: true,
-      title: 'Đăng ký - FUTA Bus Lines'
-    }
-  },
-  {
-    path: '/my-tickets',
-    name: 'MyTickets',
-    component: MyTickets,
-    meta: { 
-      requiresAuth: true,
-      title: 'Vé của tôi - FUTA Bus Lines'
-    }
-  },
-  {
-    path: '/booking/:tripId',
-    name: 'Booking',
-    component: Booking,
-    meta: { 
-      requiresAuth: true,
-      title: 'Đặt vé - FUTA Bus Lines'
-    }
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/'
-  }
+
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
-  scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) {
-      return savedPosition
-    } else {
-      return { top: 0, behavior: 'instant' }
-    }
-  }
+  routes
 })
 
-// Navigation Guards
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  
-  // Set page title
-  document.title = to.meta.title || 'FUTA Bus Lines'
-  
-  // Check authentication
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({
-      path: '/login',
-      query: { redirect: to.fullPath }
-    })
-  } 
+
+  // Nếu vào trang admin nhưng không phải admin → đá về login
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    next('/login')
+  }
+  // Nếu cần đăng nhập nhưng chưa login
+  else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    next({ path: '/login', query: { redirect: to.fullPath } })
+  }
+  // Nếu đã login rồi mà vào login/register → đẩy về trang phù hợp
   else if (to.meta.guest && authStore.isAuthenticated) {
-    next('/')
-  } 
+    authStore.isAdmin ? next('/admin') : next('/')
+  }
   else {
     next()
   }

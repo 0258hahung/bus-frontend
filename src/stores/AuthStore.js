@@ -3,7 +3,15 @@ import { defineStore } from 'pinia'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem('token') || null,
-    user: JSON.parse(localStorage.getItem('user') || 'null')
+    user: (() => {
+      try {
+        const userStr = localStorage.getItem('user')
+        return userStr ? JSON.parse(userStr) : null
+      } catch (error) {
+        console.error('Failed to parse user from localStorage:', error)
+        return null
+      }
+    })()
   }),
   getters: {
     isAuthenticated: (state) => !!state.token,
@@ -23,11 +31,17 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('user')
     },
     loadUser() {
-      const token = localStorage.getItem('token')
-      const user = localStorage.getItem('user')
-      if (token && user) {
-        this.token = token
-        this.user = JSON.parse(user)
+      try {
+        const token = localStorage.getItem('token')
+        const userStr = localStorage.getItem('user')
+        
+        if (token && userStr) {
+          this.token = token
+          this.user = JSON.parse(userStr)
+        }
+      } catch (error) {
+        console.error('Failed to load user:', error)
+        this.logout()
       }
     }
   }

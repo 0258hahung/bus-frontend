@@ -1,76 +1,201 @@
+<!-- src/components/admin/AdminSidebar.vue -->
 <template>
-  <div class="sidebar">
-    <div class="logo">FUTA Admin</div>
-    <nav class="menu">
-      <router-link to="/admin" exact class="menu-item">Dashboard</router-link>
-      <router-link to="/admin/users" class="menu-item">Người dùng</router-link>
-      <router-link to="/admin/buses" class="menu-item">Xe</router-link>
-      <router-link to="/admin/routes" class="menu-item">Tuyến xe</router-link>
-      <router-link to="/admin/trips" class="menu-item">Chuyến xe</router-link>
-      <router-link to="/admin/tickets" class="menu-item">Vé đặt</router-link>
-      <router-link to="/admin/payments" class="menu-item">Thanh toán</router-link>
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <h1 class="sidebar-title">🎓 FUTA Admin</h1>
+    </div>
+
+    <nav class="sidebar-nav">
+      <router-link
+        v-for="item in menuItems"
+        :key="item.to"
+        :to="item.to"
+        class="nav-item"
+        :class="{ 'active': isActiveRoute(item.to) }"
+      >
+        <span class="nav-icon">{{ item.icon }}</span>
+        <span class="nav-label">{{ item.label }}</span>
+      </router-link>
     </nav>
-    <button @click="logout" class="logout-btn">Đăng xuất</button>
-  </div>
+
+    <div class="sidebar-footer">
+      <button @click="logout" class="logout-btn">
+        <span class="logout-icon">🚪</span>
+        <span>Đăng xuất</span>
+      </button>
+    </div>
+  </aside>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/AuthStore.js'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/AuthStore'
+
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+const menuItems = [
+  { to: '/admin', label: 'Dashboard', icon: '🏠' },
+  { to: '/admin/users', label: 'Người dùng', icon: '👥' },
+  { to: '/admin/buses', label: 'Xe buýt', icon: '🚌' },
+  { to: '/admin/routes', label: 'Tuyến xe', icon: '🛣️' },
+  { to: '/admin/trips', label: 'Chuyến xe', icon: '🕐' },
+  { to: '/admin/tickets', label: 'Vé đã đặt', icon: '🎫' },
+  { to: '/admin/payments', label: 'Thanh toán', icon: '💰' },
+]
+
+const isActiveRoute = (path) => {
+  if (path === '/admin') {
+    return route.path === '/admin'
+  }
+  return route.path.startsWith(path)
+}
+
 const logout = () => {
-  authStore.logout()
-  router.push('/login')
+  if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+    authStore.logout()
+    router.push('/login')
+  }
 }
 </script>
 
 <style scoped>
-.sidebar {
-  width: 250px;
-  background: #e86c1c;
-  color: white;
+.admin-sidebar {
   position: fixed;
-  left: 0;
   top: 0;
-  bottom: 0;
-  z-index: 1000;
+  left: 0;
+  width: 256px;
+  height: 100vh;
+  background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+  color: white;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+  z-index: 50;
   display: flex;
   flex-direction: column;
 }
-.logo {
-  padding: 25px 20px;
+
+.sidebar-header {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-title {
   font-size: 24px;
-  font-weight: bold;
-  text-align: center;
-  background: #d35400;
-  border-bottom: 3px solid #c0392b;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: 0.5px;
 }
-.menu {
+
+.sidebar-nav {
   flex: 1;
-  padding: 20px 0;
+  padding: 24px 0;
+  overflow-y: auto;
 }
-.menu-item {
-  display: block;
-  padding: 15px 25px;
-  color: white;
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 32px;
+  color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
-  font-size: 16px;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+  font-weight: 500;
+  font-size: 15px;
 }
-.menu-item:hover, .menu-item.router-link-active {
-  background: #d35400;
-  padding-left: 35px;
+
+.nav-item:hover {
+  background: rgba(0, 0, 0, 0.15);
+  color: white;
+  border-left-color: white;
 }
+
+.nav-item.active {
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  border-left-color: white;
+  font-weight: 700;
+}
+
+.nav-icon {
+  font-size: 20px;
+  margin-right: 12px;
+  width: 24px;
+  text-align: center;
+}
+
+.nav-label {
+  flex: 1;
+}
+
+.sidebar-footer {
+  padding: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .logout-btn {
-  margin: 20px;
-  padding: 12px;
-  background: #c0392b;
+  width: 100%;
+  padding: 14px 20px;
+  background: rgba(220, 38, 38, 0.9);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
-  font-size: 16px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
-.logout-btn:hover { background: #e74c3c; }
+
+.logout-btn:hover {
+  background: rgba(220, 38, 38, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.logout-btn:active {
+  transform: translateY(0);
+}
+
+.logout-icon {
+  font-size: 18px;
+}
+
+/* Scrollbar styling */
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .admin-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+}
 </style>

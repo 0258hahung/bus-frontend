@@ -1,7 +1,7 @@
 <template>
   <div class="page-wrapper">
     <Navbar />
-    
+
     <main class="auth-main">
       <div class="auth-container">
         <h1 class="auth-title">Đăng nhập</h1>
@@ -9,11 +9,11 @@
         <form @submit.prevent="handleLogin" class="auth-form">
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input 
-              v-model="form.email" 
-              type="email" 
+            <input
+              v-model="form.email"
+              type="email"
               class="form-input"
-              placeholder="example@email.com"
+              placeholder="admin@futa.com"
               required
               autocomplete="email"
             />
@@ -21,9 +21,9 @@
 
           <div class="form-group">
             <label class="form-label">Mật khẩu</label>
-            <input 
-              v-model="form.password" 
-              type="password" 
+            <input
+              v-model="form.password"
+              type="password"
               class="form-input"
               placeholder="••••••••"
               required
@@ -35,8 +35,8 @@
             {{ error }}
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             class="btn btn-primary w-full"
             :disabled="loading"
           >
@@ -46,10 +46,8 @@
 
         <div class="auth-footer">
           <p>
-            Chưa có tài khoản? 
-            <router-link to="/register" class="auth-link">
-              Đăng ký
-            </router-link>
+            Chưa có tài khoản?
+            <router-link to="/register" class="auth-link">Đăng ký</router-link>
           </p>
         </div>
       </div>
@@ -87,25 +85,39 @@ const handleLogin = async () => {
     const res = await api.post('/auth/login', form.value)
     const { token } = res.data.data
 
-    // Parse JWT để lấy thông tin user
-    const tokenPayload = JSON.parse(atob(token.split('.')[1]))
-    
-    const user = {
-      userId: tokenPayload.userId,
-      email: tokenPayload.sub || form.value.email,
-      role: tokenPayload.role || 'CUSTOMER'
+    // Giải mã JWT để lấy thông tin user
+    let payload
+    try {
+      payload = JSON.parse(atob(token.split('.')[1]))
+    } catch (e) {
+      console.warn('Không parse được JWT payload, dùng email mặc định')
+      payload = { sub: form.value.email }
     }
 
-    // Lưu auth state
+    const user = {
+      userId: payload.userId || payload.id,
+      email: payload.sub || form.value.email,
+      role: payload.role || 'CUSTOMER' // backend phải trả về role: "ADMIN" hoặc "CUSTOMER"
+    }
+
+    // Lưu vào Pinia + localStorage
     authStore.setAuth(token, user)
 
-    // Redirect về trang trước đó hoặc home
-    const redirect = route.query.redirect || '/'
-    router.push(redirect)
-    
+    // Redirect đúng role
+    const redirectPath = route.query.redirect || '/'
+
+    if (authStore.isAdmin) {
+      // Admin: luôn vào /admin (có sidebar)
+      router.push('/admin')
+    } else {
+      // Customer: không được vào /admin
+      const safePath = redirectPath.startsWith('/admin') ? '/' : redirectPath
+      router.push(safePath)
+    }
+
   } catch (err) {
     console.error('Login error:', err)
-    error.value = err.response?.data?.message || 'Email hoặc mật khẩu không đúng'
+    error.value = err.response?.data?.message || 'Email hoặc mật khẩu không đúng!'
   } finally {
     loading.value = false
   }
@@ -113,6 +125,7 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
+/* Giữ nguyên style đẹp như cũ */
 .auth-main {
   min-height: calc(100vh - 200px);
   display: flex;
@@ -139,42 +152,27 @@ const handleLogin = async () => {
   margin-bottom: 32px;
 }
 
-.auth-form {
-  margin-bottom: 24px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--gray-900);
-  font-size: 15px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--gray-300);
+.btn-primary {
+  background: #e86c1c;
+  color: white;
+  padding: 14px;
   border-radius: 8px;
-  font-size: 15px;
-  transition: all 0.3s ease;
+  font-weight: 600;
+  font-size: 16px;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(243, 107, 33, 0.1);
+.alert-error {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 16px 0;
+  font-size: 14px;
 }
 
-.auth-footer {
-  text-align: center;
-  padding-top: 24px;
-  border-top: 1px solid var(--gray-200);
-  color: var(--gray-600);
+@media (max-width: 640px) {
+  .auth-container { padding: 32px 24px; }
+  .auth-title { font-size: 28px; }
 }
 
 .auth-link {
@@ -186,19 +184,5 @@ const handleLogin = async () => {
 
 .auth-link:hover {
   color: var(--primary-dark);
-}
-
-@media (max-width: 640px) {
-  .auth-main {
-    padding: 40px 16px;
-  }
-
-  .auth-container {
-    padding: 32px 24px;
-  }
-
-  .auth-title {
-    font-size: 28px;
-  }
 }
 </style>

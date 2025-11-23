@@ -28,12 +28,12 @@ const routes = [
     meta: { requiresAdmin: true },
     children: [
       { path: '', name: 'AdminDashboard', component: AdminDashboard },
-      { path: 'users', component: () => import('@/views/admin/Users.vue') },
-      { path: 'buses', component: () => import('@/views/admin/Buses.vue') },
-      { path: 'routes', component: () => import('@/views/admin/Routes.vue') },
-      { path: 'trips', component: () => import('@/views/admin/Trips.vue') },
-      { path: 'tickets', component: () => import('@/views/admin/Tickets.vue') },
-      { path: 'payments', component: () => import('@/views/admin/Payments.vue') },
+      // { path: 'users', component: () => import('@/views/admin/Users.vue') },
+      // { path: 'buses', component: () => import('@/views/admin/Buses.vue') },
+      // { path: 'routes', component: () => import('@/views/admin/Routes.vue') },
+      // { path: 'trips', component: () => import('@/views/admin/Trips.vue') },
+      // { path: 'tickets', component: () => import('@/views/admin/Tickets.vue') },
+      // { path: 'payments', component: () => import('@/views/admin/Payments.vue') },
     ]
   },
 

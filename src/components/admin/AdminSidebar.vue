@@ -41,8 +41,6 @@ const menuItems = [
   { to: '/admin/buses', label: 'Xe buýt', icon: '🚌' },
   { to: '/admin/routes', label: 'Tuyến xe', icon: '🛣️' },
   { to: '/admin/trips', label: 'Chuyến xe', icon: '🕐' },
-  { to: '/admin/tickets', label: 'Vé đã đặt', icon: '🎫' },
-  { to: '/admin/payments', label: 'Thanh toán', icon: '💰' },
 ]
 
 const isActiveRoute = (path) => {

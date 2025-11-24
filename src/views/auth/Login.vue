@@ -42,6 +42,10 @@
           >
             {{ loading ? 'Đang đăng nhập...' : 'Đăng nhập' }}
           </button>
+
+          <!-- Nút Google Login -->
+          <div id="g_id_onload"></div>
+          <div id="g_id_signin" class="mt-3"></div>
         </form>
 
         <div class="auth-footer">
@@ -58,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/AuthStore'
 import Navbar from '@/components/Navbar.vue'
@@ -69,52 +73,32 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const form = ref({
-  email: '',
-  password: ''
-})
-
+const form = ref({ email: '', password: '' })
 const loading = ref(false)
 const error = ref('')
 
+// Email/Password login
 const handleLogin = async () => {
   loading.value = true
   error.value = ''
-
   try {
     const res = await api.post('/auth/login', form.value)
     const { token } = res.data.data
 
-    // Giải mã JWT để lấy thông tin user
     let payload
-    try {
-      payload = JSON.parse(atob(token.split('.')[1]))
-    } catch (e) {
-      console.warn('Không parse được JWT payload, dùng email mặc định')
-      payload = { sub: form.value.email }
-    }
+    try { payload = JSON.parse(atob(token.split('.')[1])) } 
+    catch { payload = { sub: form.value.email } }
 
     const user = {
       userId: payload.userId || payload.id,
       email: payload.sub || form.value.email,
-      role: payload.role || 'CUSTOMER' // backend phải trả về role: "ADMIN" hoặc "CUSTOMER"
+      role: payload.role || 'CUSTOMER'
     }
 
-    // Lưu vào Pinia + localStorage
     authStore.setAuth(token, user)
 
-    // Redirect đúng role
     const redirectPath = route.query.redirect || '/'
-
-    if (authStore.isAdmin) {
-      // Admin: luôn vào /admin (có sidebar)
-      router.push('/admin')
-    } else {
-      // Customer: không được vào /admin
-      const safePath = redirectPath.startsWith('/admin') ? '/' : redirectPath
-      router.push(safePath)
-    }
-
+    router.push(authStore.isAdmin ? '/admin' : redirectPath.startsWith('/admin') ? '/' : redirectPath)
   } catch (err) {
     console.error('Login error:', err)
     error.value = err.response?.data?.message || 'Email hoặc mật khẩu không đúng!'
@@ -122,10 +106,59 @@ const handleLogin = async () => {
     loading.value = false
   }
 }
+
+// Google One Tap / FedCM login
+const handleGoogleCallback = async (response) => {
+  console.log('Google callback response:', response)
+
+  if (!response || !response.credential) {
+    console.error('No credential returned from Google', response)
+    error.value = 'Google login thất bại!'
+    return
+  }
+
+  const idToken = response.credential
+  console.log('Received Google ID token:', idToken)
+
+  try {
+    const res = await api.post('/auth/google', { idToken })
+    const { userId, fullName, email, role, token } = res.data.data
+    authStore.setAuth(token, { userId, fullName, email, role })
+
+    const redirectPath = route.query.redirect || '/'
+    router.push(authStore.isAdmin ? '/admin' : redirectPath.startsWith('/admin') ? '/' : redirectPath)
+  } catch (err) {
+    console.error('Google login error:', err)
+    error.value = err.response?.data?.message || 'Đăng nhập Google thất bại!'
+  }
+}
+
+// Initialize Google login
+onMounted(() => {
+  if (!window.google) {
+    error.value = 'Google API chưa load'
+    return
+  }
+
+  window.google.accounts.id.initialize({
+    client_id: '80909778177-4et1b4534kdbaf36h4unlevtl7aidmd0.apps.googleusercontent.com', // client_id thật
+    callback: handleGoogleCallback,
+    ux_mode: 'popup'
+  })
+
+  window.google.accounts.id.renderButton(
+    document.getElementById('g_id_signin'),
+    { theme: 'outline', size: 'large', width: '100%' }
+  )
+
+  window.google.accounts.id.prompt((notification) => {
+    console.log('Google prompt notification:', notification)
+  })
+})
 </script>
 
+
 <style scoped>
-/* Giữ nguyên style đẹp như cũ */
 .auth-main {
   min-height: calc(100vh - 200px);
   display: flex;
@@ -134,55 +167,9 @@ const handleLogin = async () => {
   padding: 60px 20px;
   background: var(--gray-50);
 }
-
-.auth-container {
-  background: white;
-  border-radius: 12px;
-  padding: 48px;
-  max-width: 480px;
-  width: 100%;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-}
-
-.auth-title {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--primary-color);
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.btn-primary {
-  background: #e86c1c;
-  color: white;
-  padding: 14px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.alert-error {
-  background: #fee2e2;
-  color: #dc2626;
-  padding: 12px;
-  border-radius: 8px;
-  margin: 16px 0;
-  font-size: 14px;
-}
-
-@media (max-width: 640px) {
-  .auth-container { padding: 32px 24px; }
-  .auth-title { font-size: 28px; }
-}
-
-.auth-link {
-  color: var(--primary-color);
-  font-weight: 600;
-  text-decoration: underline;
-  transition: all 0.3s ease;
-}
-
-.auth-link:hover {
-  color: var(--primary-dark);
-}
+.auth-container { background: white; border-radius: 12px; padding: 48px; max-width: 480px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+.auth-title { font-size: 32px; font-weight: 800; color: var(--primary-color); text-align: center; margin-bottom: 32px; }
+.btn-primary { background: #e86c1c; color: white; padding: 14px; border-radius: 8px; font-weight: 600; font-size: 16px; }
+.alert-error { background: #fee2e2; color: #dc2626; padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 14px; }
+.auth-link { color: var(--primary-color); font-weight: 600; text-decoration: underline; }
 </style>

@@ -6,7 +6,7 @@
       <div class="container">
         <div class="breadcrumb">
           <router-link to="/" class="back-link">
-            ← Quay lại trang chủ
+            ← Quay lại
           </router-link>
         </div>
 
@@ -14,131 +14,128 @@
 
         <div v-if="loading" class="loading">
           <div class="spinner"></div>
-          <p>Đang tải thông tin chuyến xe...</p>
+          <p>Đang tải thông tin...</p>
         </div>
 
         <div v-else-if="error" class="alert alert-error">
           {{ error }}
+          <button @click="loadTripData" class="btn btn-outline mt-2">Thử lại</button>
         </div>
 
-        <div v-else class="booking-container">
-          <!-- Trip Info Card -->
-          <div class="trip-info-card">
-            <div class="trip-info-header">
-              <h2>Thông tin chuyến xe</h2>
-              <span class="badge badge-info">{{ trip.tripId }}</span>
+        <div v-else class="booking-layout">
+          <!-- LEFT: Trip + Seats -->
+          <div class="left-col">
+            <!-- Trip Info COMPACT -->
+            <div class="trip-card">
+              <div class="trip-header">
+                <h3>{{ trip.routeInfo || 'N/A' }}</h3>
+                <span class="badge badge-info">#{{ trip.tripId }}</span>
+              </div>
+              <div class="trip-body">
+                <div class="trip-row">
+                  <span>🕐 Giờ đi:</span>
+                  <strong>{{ formatTime(trip.departureTime) }}</strong>
+                </div>
+                <div class="trip-row">
+                  <span>🚌 Loại xe:</span>
+                  <strong>Giường nằm</strong>
+                </div>
+                <div class="trip-row">
+                  <span>💰 Giá vé:</span>
+                  <strong class="price">{{ formatPrice(trip.price) }} đ</strong>
+                </div>
+              </div>
             </div>
-            <div class="trip-info-body">
-              <div class="info-item">
-                <span class="info-label">Tuyến đường:</span>
-                <span class="info-value">{{ trip.routeName || 'N/A' }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Giờ khởi hành:</span>
-                <span class="info-value">{{ formatTime(trip.departureTime) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Loại xe:</span>
-                <span class="info-value">{{ trip.busType || 'Giường nằm' }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Giá vé:</span>
-                <span class="info-value price">{{ formatPrice(trip.price) }} VNĐ</span>
-              </div>
-            </div>
-          </div>
 
-          <!-- Seat Selection -->
-          <div class="seat-section">
-            <h2 class="section-title">Chọn ghế ngồi</h2>
-            
-            <div v-for="floor in seatLayout.floors" :key="floor.name" class="floor-section">
-              <h3 class="floor-title">{{ floor.name }}</h3>
+            <!-- Seats COMPACT -->
+            <div class="seats-card">
+              <h3 class="card-title">Chọn ghế <span class="hint">(Click để chọn)</span></h3>
               
-              <div class="seats-grid">
-                <button 
-                  v-for="seat in floor.seats" 
-                  :key="seat.seatId"
-                  :class="getSeatClass(seat)"
-                  :disabled="seat.status !== 'AVAILABLE'"
-                  @click="selectSeat(seat)"
-                  :title="`Ghế ${seat.seatNumber} - ${getSeatStatus(seat.status)}`"
-                >
-                  <span class="seat-number">{{ seat.seatNumber }}</span>
-                </button>
-              </div>
-            </div>
+              <div v-if="seatLayout.floors && seatLayout.floors.length > 0" class="floors">
+                <div v-for="floor in seatLayout.floors" :key="floor.name" class="floor">
+                  <div class="floor-name">{{ floor.name }}</div>
+                  <div class="seats">
+                    <button 
+                      v-for="seat in floor.seats" 
+                      :key="seat.seatId"
+                      :class="getSeatClass(seat)"
+                      :disabled="seat.status !== 'AVAILABLE'"
+                      @click="selectSeat(seat)"
+                      :title="getSeatTooltip(seat)"
+                    >
+                      {{ seat.seatNumber }}
+                    </button>
+                  </div>
+                </div>
 
-            <!-- Legend -->
-            <div class="seat-legend">
-              <div class="legend-item">
-                <div class="legend-box available"></div>
-                <span>Còn trống</span>
+                <!-- Legend -->
+                <div class="legend">
+                  <div class="leg-item">
+                    <div class="dot avail"></div>
+                    <span>Trống</span>
+                  </div>
+                  <div class="leg-item">
+                    <div class="dot sel"></div>
+                    <span>Đã chọn</span>
+                  </div>
+                  <div class="leg-item">
+                    <div class="dot book"></div>
+                    <span>Đã đặt</span>
+                  </div>
+                </div>
               </div>
-              <div class="legend-item">
-                <div class="legend-box selected"></div>
-                <span>Đã chọn</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-box booked"></div>
-                <span>Đã đặt</span>
-              </div>
+              <div v-else class="alert alert-warning">Không tìm thấy ghế</div>
             </div>
           </div>
 
-          <!-- Booking Summary -->
-          <div v-if="selectedSeat" class="booking-summary">
-            <h2 class="section-title">Thông tin đặt vé</h2>
-            
-            <div class="selected-seat-info">
-              <div class="seat-badge">
-                Ghế số: <strong>{{ selectedSeat.seatNumber }}</strong>
+          <!-- RIGHT: Summary STICKY -->
+          <div class="right-col">
+            <div v-if="selectedSeat" class="summary sticky">
+              <h3 class="sum-title">Thông tin đặt vé</h3>
+              
+              <div class="seat-info">
+                <div class="seat-num">Ghế <strong>{{ selectedSeat.seatNumber }}</strong></div>
+                <div class="seat-deck">{{ selectedSeat.deck === 'A' ? 'Tầng dưới' : 'Tầng trên' }}</div>
               </div>
-              <div class="seat-details">
-                <span>{{ selectedSeat.deck === 'A' ? 'Tầng dưới' : 'Tầng trên' }}</span>
+
+              <div class="form-group">
+                <label>Thanh toán</label>
+                <select v-model="paymentMethod" class="form-select">
+                  <option value="CASH">💵 Tiền mặt (khi lên xe)</option>
+                  <option value="VNPAY">💳 VNPay (online)</option>
+                </select>
               </div>
+
+              <div class="price-box">
+                <div class="p-row">
+                  <span>Giá vé:</span>
+                  <span>{{ formatPrice(trip.price) }}</span>
+                </div>
+                <div class="p-row">
+                  <span>Phí dịch vụ:</span>
+                  <span>0 đ</span>
+                </div>
+                <div class="p-total">
+                  <span>Tổng:</span>
+                  <span>{{ formatPrice(trip.price) }} đ</span>
+                </div>
+              </div>
+
+              <button 
+                @click="bookTicket" 
+                class="btn btn-primary w-full"
+                :disabled="bookingLoading"
+              >
+                {{ bookingLoading ? 'Đang xử lý...' : '🎫 Xác nhận đặt vé' }}
+              </button>
+
+              <p class="note">* Kiểm tra kỹ thông tin</p>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Phương thức thanh toán</label>
-              <select v-model="paymentMethod" class="form-select">
-                <option value="CASH">💵 Tiền mặt - Thanh toán khi lên xe</option>
-                <option value="VNPAY">💳 VNPay - Thanh toán online</option>
-              </select>
-              <small class="form-hint">
-                {{ paymentMethod === 'CASH' ? 'Thanh toán trực tiếp cho tài xế' : 'Chuyển hướng đến cổng VNPay' }}
-              </small>
+            <div v-else class="summary empty">
+              <div class="em-icon">🪑</div>
+              <p>Chọn ghế để tiếp tục</p>
             </div>
-
-            <div class="price-summary">
-              <div class="price-row">
-                <span>Giá vé:</span>
-                <span>{{ formatPrice(trip.price) }} VNĐ</span>
-              </div>
-              <div class="price-row total">
-                <span>Tổng thanh toán:</span>
-                <span>{{ formatPrice(trip.price) }} VNĐ</span>
-              </div>
-            </div>
-
-            <button 
-              @click="bookTicket" 
-              class="btn btn-primary w-full"
-              :disabled="bookingLoading"
-            >
-              <span v-if="bookingLoading">Đang xử lý...</span>
-              <span v-else>🎫 Xác nhận đặt vé</span>
-            </button>
-
-            <p class="booking-note">
-              * Vui lòng kiểm tra kỹ thông tin trước khi xác nhận
-            </p>
-          </div>
-
-          <!-- No seat selected -->
-          <div v-else class="no-selection">
-            <div class="no-selection-icon">🪑</div>
-            <p>Vui lòng chọn ghế để tiếp tục</p>
           </div>
         </div>
       </div>
@@ -178,40 +175,40 @@ const loadTripData = async () => {
   error.value = ''
   
   try {
-    // Load trip info
     const tripRes = await api.get(`/trips/${tripId}`)
     trip.value = tripRes.data.data
+    
+    console.log('Trip data:', trip.value)
 
-    // Load seat layout
     const busId = trip.value.busId
     if (busId) {
       const seatsRes = await api.get(`/seats/layout/bus/${busId}`)
       seatLayout.value = seatsRes.data.data
+      console.log('Seats:', seatLayout.value)
     } else {
       throw new Error('Không tìm thấy thông tin xe')
     }
   } catch (err) {
-    console.error('Error loading trip data:', err)
-    error.value = err.response?.data?.message || 'Lỗi tải thông tin chuyến xe'
+    console.error('Error loading:', err)
+    error.value = err.response?.data?.message || 'Lỗi tải thông tin'
   } finally {
     loading.value = false
   }
 }
 
 const getSeatClass = (seat) => {
-  const baseClass = 'seat-btn'
-  if (seat.status === 'BOOKED') return `${baseClass} booked`
-  if (selectedSeat.value?.seatId === seat.seatId) return `${baseClass} selected`
-  return `${baseClass} available`
+  if (seat.status === 'BOOKED') return 'seat book'
+  if (selectedSeat.value?.seatId === seat.seatId) return 'seat sel'
+  return 'seat avail'
 }
 
-const getSeatStatus = (status) => {
-  const statusMap = {
+const getSeatTooltip = (seat) => {
+  const st = {
     'AVAILABLE': 'Còn trống',
     'BOOKED': 'Đã đặt',
     'SELECTED': 'Đang chọn'
   }
-  return statusMap[status] || status
+  return `Ghế ${seat.seatNumber} - ${st[seat.status] || seat.status}`
 }
 
 const selectSeat = (seat) => {
@@ -226,13 +223,12 @@ const bookTicket = async () => {
     return
   }
 
-  if (!confirm('Xác nhận đặt vé?')) return
+  if (!confirm(`Xác nhận đặt ghế ${selectedSeat.value.seatNumber}?`)) return
 
   bookingLoading.value = true
   error.value = ''
 
   try {
-    // Step 1: Book ticket
     const bookingRes = await api.post('/tickets/book', null, {
       params: {
         userId: authStore.user.userId,
@@ -243,22 +239,22 @@ const bookTicket = async () => {
 
     const ticketId = bookingRes.data.data.ticketId
 
-    // Step 2: Create payment
     const paymentRes = await api.post(
       `/payments/create?ticketId=${ticketId}&method=${paymentMethod.value}`
     )
 
-    // Step 3: Handle payment method
     if (paymentMethod.value === 'VNPAY' && paymentRes.data.vnpayUrl) {
       window.location.href = paymentRes.data.vnpayUrl
     } else {
-      alert('Đặt vé thành công! Vui lòng thanh toán khi lên xe.')
+      alert('Đặt vé thành công! Thanh toán khi lên xe.')
       router.push('/my-tickets')
     }
   } catch (err) {
     console.error('Booking error:', err)
-    error.value = err.response?.data?.message || 'Đặt vé thất bại. Vui lòng thử lại!'
+    error.value = err.response?.data?.message || 'Đặt vé thất bại!'
     alert(error.value)
+    await loadTripData()
+    selectedSeat.value = null
   } finally {
     bookingLoading.value = false
   }
@@ -267,12 +263,11 @@ const bookTicket = async () => {
 const formatTime = (time) => {
   if (!time) return ''
   return new Date(time).toLocaleString('vi-VN', {
-    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+    year: 'numeric'
   })
 }
 
@@ -283,20 +278,19 @@ const formatPrice = (price) => {
 
 <style scoped>
 .booking-page {
-  padding: 40px 20px;
-  min-height: calc(100vh - 200px);
+  padding: 30px 20px;
   background: var(--gray-50);
+  min-height: calc(100vh - 200px);
 }
 
 .breadcrumb {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .back-link {
   color: var(--primary-color);
   font-weight: 600;
-  transition: all 0.3s ease;
-  display: inline-block;
+  transition: all 0.3s;
 }
 
 .back-link:hover {
@@ -304,272 +298,292 @@ const formatPrice = (price) => {
 }
 
 .page-title {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 800;
-  margin-bottom: 32px;
-  color: var(--gray-900);
-}
-
-.booking-container {
-  display: grid;
-  gap: 24px;
-}
-
-/* Trip Info Card */
-.trip-info-card {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow);
-}
-
-.trip-info-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--gray-200);
 }
 
-.trip-info-header h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--gray-900);
-}
-
-.trip-info-body {
+/* 2 COLUMNS */
+.booking-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.left-col {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-.info-item {
+/* TRIP CARD */
+.trip-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.trip-header {
+  background: var(--gray-50);
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.trip-header h3 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.trip-body {
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 
-.info-label {
-  font-size: 13px;
-  color: var(--gray-600);
+.trip-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
 }
 
-.info-value {
-  font-size: 16px;
+.trip-row strong {
   font-weight: 600;
-  color: var(--gray-900);
 }
 
-.info-value.price {
+.trip-row .price {
   color: var(--primary-color);
-  font-size: 20px;
+  font-size: 17px;
 }
 
-/* Seat Section */
-.seat-section {
+/* SEATS CARD - COMPACT */
+.seats-card {
   background: white;
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 10px;
+  padding: 18px;
   box-shadow: var(--shadow);
 }
 
-.section-title {
-  font-size: 20px;
+.card-title {
+  font-size: 17px;
   font-weight: 700;
-  margin-bottom: 24px;
-  color: var(--gray-900);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.floor-section {
-  margin-bottom: 32px;
+.hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--gray-500);
 }
 
-.floor-title {
-  font-size: 16px;
+.floors {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.floor {
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--gray-50);
+}
+
+.floor-name {
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 16px;
-  color: var(--gray-700);
-  padding: 8px 12px;
-  background: var(--gray-100);
-  border-radius: 6px;
+  margin-bottom: 10px;
+  padding: 5px 10px;
+  background: white;
+  border-radius: 5px;
   display: inline-block;
 }
 
-.seats-grid {
+/* SEATS GRID - 8 COLUMNS */
+.seats {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  max-width: 500px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
 }
 
-.seat-btn {
+.seat {
   aspect-ratio: 1;
-  border: 2px solid transparent;
-  border-radius: 8px;
+  border: none;
+  border-radius: 5px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: all 0.2s;
 }
 
-.seat-btn.available {
+.seat.avail {
   background: #3b82f6;
   color: white;
 }
 
-.seat-btn.available:hover {
+.seat.avail:hover {
   background: #2563eb;
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.seat-btn.selected {
+.seat.sel {
   background: #22c55e;
   color: white;
-  border-color: #16a34a;
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
 }
 
-.seat-btn.booked {
+.seat.book {
   background: var(--gray-300);
   color: var(--gray-500);
   cursor: not-allowed;
 }
 
-.seat-legend {
+/* LEGEND */
+.legend {
   display: flex;
-  gap: 24px;
+  gap: 14px;
   justify-content: center;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--gray-200);
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-300);
+  margin-top: 12px;
 }
 
-.legend-item {
+.leg-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--gray-700);
+  gap: 5px;
+  font-size: 12px;
 }
 
-.legend-box {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+.dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
 }
 
-.legend-box.available {
+.dot.avail {
   background: #3b82f6;
 }
 
-.legend-box.selected {
+.dot.sel {
   background: #22c55e;
 }
 
-.legend-box.booked {
+.dot.book {
   background: var(--gray-300);
 }
 
-/* Booking Summary */
-.booking-summary {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow);
+/* RIGHT SUMMARY - STICKY */
+.right-col {
+  position: relative;
 }
 
-.selected-seat-info {
-  background: #dcfce7;
+.summary {
+  background: white;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: var(--shadow-lg);
+  border: 2px solid var(--primary-color);
+}
+
+.summary.sticky {
+  position: sticky;
+  top: 80px;
+}
+
+.summary.empty {
+  text-align: center;
+  padding: 40px 18px;
+  border: 2px dashed var(--gray-300);
+}
+
+.em-icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+.sum-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.seat-info {
+  background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%);
   border: 2px solid #22c55e;
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
 }
 
-.seat-badge {
-  font-size: 24px;
+.seat-num {
+  font-size: 19px;
   font-weight: 800;
   color: #16a34a;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
-.seat-details {
-  font-size: 14px;
+.seat-deck {
+  font-size: 13px;
   color: #166534;
 }
 
-.form-hint {
-  display: block;
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--gray-500);
-}
-
-.price-summary {
+.price-box {
   background: var(--gray-50);
   border-radius: 8px;
-  padding: 16px;
-  margin: 24px 0;
+  padding: 12px;
+  margin: 14px 0;
 }
 
-.price-row {
+.p-row {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  font-size: 15px;
+  padding: 6px 0;
+  font-size: 14px;
 }
 
-.price-row.total {
+.p-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
   border-top: 2px solid var(--gray-300);
-  padding-top: 12px;
-  margin-top: 8px;
-  font-size: 20px;
+  margin-top: 6px;
+  font-size: 17px;
   font-weight: 800;
   color: var(--primary-color);
 }
 
-.booking-note {
-  margin-top: 16px;
-  font-size: 13px;
+.note {
+  margin-top: 12px;
+  font-size: 12px;
   color: var(--gray-600);
   text-align: center;
   font-style: italic;
 }
 
-/* No Selection */
-.no-selection {
-  background: white;
-  border-radius: 12px;
-  padding: 60px 24px;
-  box-shadow: var(--shadow);
-  text-align: center;
-  color: var(--gray-500);
-}
-
-.no-selection-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-}
-
-@media (max-width: 640px) {
-  .seats-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-
-  .seat-btn {
-    font-size: 12px;
-  }
-
-  .trip-info-body {
+@media (max-width: 768px) {
+  .booking-layout {
     grid-template-columns: 1fr;
+  }
+
+  .summary.sticky {
+    position: static;
+  }
+
+  .seats {
+    grid-template-columns: repeat(6, 1fr);
   }
 }
 </style>

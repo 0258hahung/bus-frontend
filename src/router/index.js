@@ -16,12 +16,16 @@ const routes = [
   { path: '/', name: 'Home', component: HomePage },
   { path: '/my-tickets', component: () => import('@/views/customer/MyTickets.vue'), meta: { requiresAuth: true } },
   { path: '/booking/:tripId', component: () => import('@/views/customer/Booking.vue'), meta: { requiresAuth: true } },
+  
+  // ⭐ NEW ROUTES
+  { path: '/schedule', component: () => import('@/views/customer/Schedule.vue') },
+  { path: '/track-ticket', component: () => import('@/views/customer/TrackTicket.vue') },
 
   // Auth
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
   { path: '/register', name: 'Register', component: Register, meta: { guest: true } },
 
-  // Admin Routes - DÙNG LAYOUT RIÊNG
+  // Admin Routes
   {
     path: '/admin',
     component: AdminLayout,
@@ -34,6 +38,7 @@ const routes = [
       { path: 'trips', component: () => import('@/views/admin/TripManagementView.vue') },
       { path: 'tickets', component: () => import('@/views/admin/TicketManagementView.vue') },
       { path: 'payments', component: () => import('@/views/admin/PaymentManagementView.vue') },
+
     ]
   },
 
@@ -48,15 +53,12 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
-  // Nếu vào trang admin nhưng không phải admin → đá về login
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next('/login')
   }
-  // Nếu cần đăng nhập nhưng chưa login
   else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ path: '/login', query: { redirect: to.fullPath } })
   }
-  // Nếu đã login rồi mà vào login/register → đẩy về trang phù hợp
   else if (to.meta.guest && authStore.isAuthenticated) {
     authStore.isAdmin ? next('/admin') : next('/')
   }

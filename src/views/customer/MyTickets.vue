@@ -18,6 +18,7 @@
 
         <div v-else-if="error" class="alert alert-error">
           {{ error }}
+          <button @click="loadTickets" class="btn btn-outline mt-2">Thử lại</button>
         </div>
 
         <div v-else-if="tickets.length > 0" class="tickets-container">
@@ -39,32 +40,25 @@
             <div 
               v-for="ticket in filteredTickets" 
               :key="ticket.ticketId" 
-              class="ticket-card"
+              :class="['ticket-card', `status-${ticket.status.toLowerCase()}`]"
             >
-              <!-- Ticket Header -->
+              <!-- Header -->
               <div class="ticket-header">
                 <div class="ticket-status">
                   <span :class="['status-badge', getStatusClass(ticket.status)]">
                     {{ getStatusText(ticket.status) }}
                   </span>
-                  <span class="ticket-code">{{ ticket.ticketCode }}</span>
+                  <span class="ticket-code">{{ `TICKET_${ticket.ticketId}`|| ticket.qrCode  }}</span>
                 </div>
                 <div class="ticket-date">
-                  {{ formatDate(ticket.createdAt) }}
+                  {{ formatDate(ticket.bookedAt) }}
                 </div>
               </div>
 
-              <!-- Ticket Body -->
+              <!-- Body -->
               <div class="ticket-body">
                 <div class="route-info">
-                  <h3 class="route-name">
-                    {{ ticket.trip?.routeName || 'N/A' }}
-                  </h3>
-                  <div class="route-details">
-                    <span class="from">{{ ticket.trip?.from || 'N/A' }}</span>
-                    <span class="arrow">→</span>
-                    <span class="to">{{ ticket.trip?.to || 'N/A' }}</span>
-                  </div>
+                  <h3 class="route-name">{{ ticket.routeInfo || 'N/A' }}</h3>
                 </div>
 
                 <div class="ticket-details">
@@ -73,7 +67,7 @@
                       <span class="detail-icon">🕐</span>
                       <div class="detail-content">
                         <span class="detail-label">Giờ khởi hành</span>
-                        <span class="detail-value">{{ formatTime(ticket.trip?.departureTime) }}</span>
+                        <span class="detail-value">{{ formatTime(ticket.tripDepartureTime) }}</span>
                       </div>
                     </div>
 
@@ -81,7 +75,9 @@
                       <span class="detail-icon">💺</span>
                       <div class="detail-content">
                         <span class="detail-label">Số ghế</span>
-                        <span class="detail-value highlight">{{ ticket.seat?.seatNumber || 'N/A' }}</span>
+                        <span class="detail-value highlight">
+                          {{ ticket.seatNumber || 'N/A' }} ({{ ticket.deck === 'A' ? 'Tầng dưới' : 'Tầng trên' }})
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -90,8 +86,8 @@
                     <div class="detail-item">
                       <span class="detail-icon">🚌</span>
                       <div class="detail-content">
-                        <span class="detail-label">Xe</span>
-                        <span class="detail-value">{{ ticket.trip?.busType || 'Giường nằm' }}</span>
+                        <span class="detail-label">Biển số xe</span>
+                        <span class="detail-value">{{ ticket.licensePlate || 'N/A' }}</span>
                       </div>
                     </div>
 
@@ -108,22 +104,32 @@
                 <!-- QR Code for PAID tickets -->
                 <div v-if="ticket.status === 'PAID'" class="qr-section">
                   <div class="qr-header">
-                    <p class="qr-label">Xuất trình mã QR khi lên xe</p>
+                    <p class="qr-label">📱 Xuất trình mã QR khi lên xe</p>
                   </div>
                   <div class="qr-code">
                     <img 
-                      :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${ticket.ticketCode}`" 
-                      :alt="`QR Code ${ticket.ticketCode}`"
+                      :src="getQRCodeUrl(ticket.qrCode || `TICKET_${ticket.ticketId}`)" 
+                      :alt="`QR Code ${ticket.ticketId}`"
                       loading="lazy"
                     />
+                    <p class="qr-code-text">{{ ticket.qrCode || `TICKET_${ticket.ticketId}` }}</p>
+                  </div>
+                </div>
+
+                <!-- Payment Reminder for PENDING -->
+                <div v-if="ticket.status === 'PENDING'" class="payment-reminder">
+                  <div class="reminder-icon">⚠️</div>
+                  <div class="reminder-content">
+                    <strong>Chờ thanh toán</strong>
+                    <p>Vui lòng thanh toán tiền mặt khi lên xe</p>
                   </div>
                 </div>
               </div>
 
-              <!-- Ticket Actions -->
+              <!-- Actions -->
               <div class="ticket-actions">
                 <button 
-                  v-if="ticket.status === 'PENDING'" 
+                  v-if="ticket.status === 'PENDING' && canCancel(ticket)" 
                   @click="cancelTicket(ticket.ticketId)" 
                   class="btn btn-danger btn-sm"
                   :disabled="cancelling === ticket.ticketId"
@@ -139,6 +145,11 @@
                 </button>
               </div>
             </div>
+          </div>
+
+          <!-- Pagination -->
+          <div v-if="filteredTickets.length > 10" class="pagination">
+            <p class="results-info">Hiển thị {{ filteredTickets.length }} vé</p>
           </div>
         </div>
 
@@ -199,16 +210,45 @@ const loadTickets = async () => {
   
   try {
     const res = await api.get(`/tickets/user/${authStore.user.userId}`)
-    tickets.value = res.data.data || []
+    const ticketsData = res.data.data || []
     
-    // Sort by date (newest first)
-    tickets.value.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    // Map data từ TicketDTO backend
+    tickets.value = ticketsData.map(t => ({
+      ticketId: t.ticketId,
+      userId: t.userId,
+      fullName: t.fullName,
+      email: t.email,
+      tripId: t.tripId,
+      routeInfo: t.routeInfo,
+      licensePlate: t.licensePlate,
+      deck: t.deck,
+      seatNumber: t.seatNumber,
+      qrCode: t.qrCode,
+      status: t.status,
+      bookedAt: t.bookedAt,
+      // Giá vé cần lấy từ trip hoặc payment
+      price: 350000, // Tạm hardcode, nên có API trả về
+      tripDepartureTime: null // Backend cần thêm field này vào TicketDTO
+    }))
+    
+    tickets.value.sort((a, b) => new Date(b.bookedAt) - new Date(a.bookedAt))
+    
+    console.log('Tickets loaded:', tickets.value)
   } catch (err) {
     console.error('Error loading tickets:', err)
     error.value = 'Lỗi tải danh sách vé. Vui lòng thử lại!'
   } finally {
     loading.value = false
   }
+}
+
+const canCancel = (ticket) => {
+  // Chỉ cho phép hủy nếu còn > 2h trước giờ đi
+  if (!ticket.tripDepartureTime) return true
+  const departureTime = new Date(ticket.tripDepartureTime)
+  const now = new Date()
+  const hoursUntil = (departureTime - now) / (1000 * 60 * 60)
+  return hoursUntil > 2
 }
 
 const cancelTicket = async (ticketId) => {
@@ -231,6 +271,10 @@ const cancelTicket = async (ticketId) => {
 const downloadTicket = (ticket) => {
   alert('Tính năng tải vé đang được phát triển!')
   // TODO: Implement PDF download
+}
+
+const getQRCodeUrl = (code) => {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${code}`
 }
 
 const formatTime = (time) => {
@@ -291,6 +335,8 @@ const getStatusText = (status) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .page-title {
@@ -300,7 +346,7 @@ const getStatusText = (status) => {
 }
 
 .tickets-container {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -362,11 +408,25 @@ const getStatusText = (status) => {
   overflow: hidden;
   box-shadow: var(--shadow);
   transition: all 0.3s ease;
+  border-left: 4px solid transparent;
 }
 
 .ticket-card:hover {
   box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
+}
+
+.ticket-card.status-paid {
+  border-left-color: var(--success-color);
+}
+
+.ticket-card.status-pending {
+  border-left-color: var(--warning-color);
+}
+
+.ticket-card.status-cancelled {
+  border-left-color: var(--danger-color);
+  opacity: 0.7;
 }
 
 .ticket-header {
@@ -414,7 +474,10 @@ const getStatusText = (status) => {
 .ticket-code {
   font-size: 13px;
   color: var(--gray-600);
-  font-family: monospace;
+  font-family: 'Courier New', monospace;
+  background: var(--gray-200);
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .ticket-date {
@@ -436,20 +499,6 @@ const getStatusText = (status) => {
   font-size: 24px;
   font-weight: 700;
   color: var(--gray-900);
-  margin-bottom: 8px;
-}
-
-.route-details {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 16px;
-  color: var(--gray-600);
-}
-
-.arrow {
-  color: var(--primary-color);
-  font-weight: 700;
 }
 
 .ticket-details {
@@ -512,7 +561,8 @@ const getStatusText = (status) => {
 
 /* QR Section */
 .qr-section {
-  background: var(--gray-50);
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 2px solid #22c55e;
   border-radius: 8px;
   padding: 20px;
   text-align: center;
@@ -525,17 +575,59 @@ const getStatusText = (status) => {
 
 .qr-label {
   font-size: 14px;
-  color: var(--gray-700);
-  font-weight: 600;
+  color: #166534;
+  font-weight: 700;
+}
+
+.qr-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .qr-code img {
-  width: 150px;
-  height: 150px;
+  width: 200px;
+  height: 200px;
   background: white;
   padding: 12px;
   border-radius: 8px;
   box-shadow: var(--shadow);
+}
+
+.qr-code-text {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+/* Payment Reminder */
+.payment-reminder {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.reminder-icon {
+  font-size: 32px;
+}
+
+.reminder-content strong {
+  display: block;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.reminder-content p {
+  font-size: 14px;
+  color: #92400e;
+  margin: 0;
 }
 
 /* Ticket Actions */
@@ -545,10 +637,22 @@ const getStatusText = (status) => {
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid var(--gray-200);
+  flex-wrap: wrap;
 }
 
 .btn-sm {
   padding: 8px 16px;
+  font-size: 14px;
+}
+
+/* Pagination */
+.pagination {
+  margin-top: 32px;
+  text-align: center;
+}
+
+.results-info {
+  color: var(--gray-600);
   font-size: 14px;
 }
 
@@ -564,6 +668,7 @@ const getStatusText = (status) => {
 .no-tickets-icon {
   font-size: 80px;
   margin-bottom: 24px;
+  opacity: 0.6;
 }
 
 .no-tickets h3 {
@@ -583,7 +688,16 @@ const getStatusText = (status) => {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .ticket-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .ticket-details {
@@ -592,6 +706,14 @@ const getStatusText = (status) => {
 
   .filter-tabs {
     flex-wrap: nowrap;
+  }
+
+  .ticket-actions {
+    justify-content: stretch;
+  }
+
+  .ticket-actions .btn {
+    flex: 1;
   }
 }
 </style>

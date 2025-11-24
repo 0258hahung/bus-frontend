@@ -8,8 +8,8 @@
 
       <nav class="navbar-links">
         <router-link to="/" exact>Trang chủ</router-link>
-        <a href="#" @click.prevent>Lịch trình</a>
-        <a href="#" @click.prevent>Tra cứu vé</a>
+        <router-link to="/schedule">Lịch trình</router-link>
+        <router-link to="/track-ticket">Tra cứu vé</router-link>
       </nav>
 
       <div class="navbar-actions">

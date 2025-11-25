@@ -92,17 +92,34 @@ const props = defineProps({
 
 const emit = defineEmits(['save', 'close'])
 
-// Chuyển đổi định dạng DATETIME của DB sang định dạng input datetime-local yêu cầu (YYYY-MM-DDThh:mm)
+// Hàm này đảm bảo định dạng YYYY-MM-DDTHH:MM cho input datetime-local
 const formatForInput = (isoString) => {
-    if (!isoString) return ''
-    const date = new Date(isoString)
-    // Lấy YYYY-MM-DDTHH:mm
-    return date.toISOString().slice(0, 16)
+    if (!isoString) return '';
+    try {
+        // 1. Tạo đối tượng Date
+        // THAY THẾ 'T' bằng khoảng trắng để JS diễn giải chuỗi là Local Time (VN)
+        const date = new Date(isoString.replace('T', ' ')); 
+        
+        // 2. Lấy các thành phần theo Giờ CỤC BỘ (Local Time) từ đối tượng Date
+        const Y = date.getFullYear();
+        const M = String(date.getMonth() + 1).padStart(2, '0');
+        const D = String(date.getDate()).padStart(2, '0');
+        const h = String(date.getHours()).padStart(2, '0');
+        const m = String(date.getMinutes()).padStart(2, '0');
+
+        // 3. Trả về định dạng chuẩn YYYY-MM-DDTHH:MM cho input datetime-local
+        return `${Y}-${M}-${D}T${h}:${m}`;
+        
+    } catch (e) {
+        console.error("Lỗi formatForInput:", e);
+        // Fallback an toàn
+        return isoString.slice(0, 16); 
+    }
 }
 
 const tripData = ref({
     ...props.initialTrip,
-    // Đảm bảo thời gian được định dạng đúng cho input
+    // ✅ Sẽ sử dụng hàm formatForInput đã fix
     departure_time: formatForInput(props.initialTrip.departure_time),
     arrival_time: formatForInput(props.initialTrip.arrival_time),
 })

@@ -86,14 +86,13 @@ const formatDateTime = (isoString) => {
     }
 }
 
-// Hàm này đảm bảo định dạng YYYY-MM-DDTHH:MM cho input datetime-local
+// src/views/admin/TripManagementView.vue (Sửa hàm formatForInput)
+
+// src/views/admin/TripManagementView.vue
+
 const formatForInput = (isoString) => {
     if (!isoString) return '';
-    // Đảm bảo chuỗi có ít nhất 16 ký tự trước khi cắt
-    if (isoString.length < 16) {
-        console.warn("ISO string quá ngắn:", isoString);
-        return isoString; // Trả về nguyên gốc để debug
-    }
+    // ✅ FIX LỖI SAI GIỜ KHI SỬA: Cắt chuỗi thô để input đọc giờ đơn giản nhất.
     // Lấy chính xác YYYY-MM-DDTHH:MM (16 ký tự đầu tiên)
     return isoString.slice(0, 16); 
 }
@@ -189,20 +188,16 @@ const openCreateModal = () => {
     isModalOpen.value = true
 }
 
-// src/views/admin/TripManagementView.vue (Sửa hàm editTrip)
 
 const editTrip = (tripData) => {
-    // Sao chép dữ liệu
     currentTrip.value = { 
         ...tripData,
-        
-        // ✅ ÁP DỤNG HÀM CẮT CHUỖI
+        // ✅ Gọi hàm đã sửa
         departure_time: formatForInput(tripData.departure_time),
         arrival_time: formatForInput(tripData.arrival_time),
     } 
     isModalOpen.value = true
 }
-
 const closeModal = () => {
     isModalOpen.value = false
 }

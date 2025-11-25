@@ -93,23 +93,23 @@
         </div>
       </section>
 
-      <!-- Features Section (khi chưa search) -->
+      <!-- Features Section (hiển thị khi chưa search) -->
       <section v-else class="features-section">
         <div class="container">
           <h2 class="section-title text-center mb-4">Tại sao chọn FUTA Bus?</h2>
           <div class="features-grid">
             <div class="feature-card">
-              <div class="feature-icon">Đặt vé dễ dàng</div>
+              <div class="feature-icon">🎫</div>
               <h3>Đặt vé dễ dàng</h3>
               <p>Chọn chuyến, chọn ghế, thanh toán nhanh chóng trong vài phút</p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon">Thanh toán an toàn</div>
+              <div class="feature-icon">💳</div>
               <h3>Thanh toán an toàn</h3>
               <p>Hỗ trợ VNPay và thanh toán khi lên xe, bảo mật tuyệt đối</p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon">Xe chất lượng</div>
+              <div class="feature-icon">🚌</div>
               <h3>Xe chất lượng</h3>
               <p>Đội xe hiện đại, ghế nằm êm ái, tài xế chuyên nghiệp</p>
             </div>

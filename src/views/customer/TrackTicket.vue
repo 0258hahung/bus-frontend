@@ -5,14 +5,14 @@
     <main class="track-page">
       <div class="container">
         <h1 class="page-title">🔍 Tra Cứu Vé</h1>
-        <p class="page-subtitle">Nhập mã vé  để tra cứu thông tin</p>
+        <p class="page-subtitle">Nhập mã vé để tra cứu thông tin</p>
 
         <!-- Search Form -->
         <div class="search-card">
           <form @submit.prevent="searchTicket" class="search-form">
             <div class="form-row">
               <div class="form-group">
-                <label>Mã vé </label>
+                <label>Mã vé</label>
                 <input 
                   v-model="searchQuery"
                   type="text"
@@ -51,12 +51,12 @@
               <div class="info-grid">
                 <div class="info-item">
                   <span class="label">Mã vé:</span>
-                  <span class="value code">{{ ticket.qrCode || `TICKET_${ticket.ticketId}` }}</span>
+                  <span class="value code">{{ `TICKET_${ticket.ticketId}` }}</span>
                 </div>
 
                 <div class="info-item">
                   <span class="label">Họ tên:</span>
-                  <span class="value">{{ ticket.fullName }}</span>
+                  <span class="value">{{ ticket.fullName || 'Chưa có tên' }}</span>
                 </div>
 
                 <div class="info-item">
@@ -66,18 +66,39 @@
 
                 <div class="info-item">
                   <span class="label">Tuyến đường:</span>
-                  <span class="value">{{ ticket.routeInfo }}</span>
+                  <span class="value">{{ ticket.routeInfo || 'N/A' }}</span>
                 </div>
 
                 <div class="info-item">
                   <span class="label">Biển số xe:</span>
-                  <span class="value">{{ ticket.licensePlate }}</span>
+                  <span class="value">{{ ticket.licensePlate || 'N/A' }}</span>
                 </div>
 
                 <div class="info-item">
-                  <span class="label">Số ghế:</span>
+                  <span class="label">Giờ khởi hành:</span>
                   <span class="value highlight">
-                    {{ ticket.seatNumber }} ({{ ticket.deck === 'A' ? 'Tầng dưới' : 'Tầng trên' }})
+                    {{ ticket.departureTime 
+                      ? formatDateTime(ticket.departureTime) 
+                      : 'Chưa xác định' }}
+                  </span>
+                </div>
+
+                <div class="info-item">
+                  <span class="label">Ghế:</span>
+                  <span class="value highlight">
+                    {{ ticket.seatNumber }} (Tầng {{ ticket.deck }})
+                  </span>
+                </div>
+
+                <div class="info-item">
+                  <span class="label">SĐT:</span>
+                  <span class="value">{{ ticket.phone || 'N/A' }}</span>
+                </div>
+
+                <div class="info-item">
+                  <span class="label">Giá vé:</span>
+                  <span class="value highlight">
+                    {{ ticket.price ? formatCurrency(ticket.price) + ' đ' : '350.000 đ' }}
                   </span>
                 </div>
 
@@ -85,32 +106,19 @@
                   <span class="label">Ngày đặt:</span>
                   <span class="value">{{ formatDate(ticket.bookedAt) }}</span>
                 </div>
-
-                <div class="info-item">
-                  <span class="label">Trạng thái:</span>
-                  <span :class="['value', getStatusClass(ticket.status)]">
-                    {{ getStatusText(ticket.status) }}
-                  </span>
-                </div>
               </div>
 
-              <!-- QR Code -->
-              <div v-if="ticket.status === 'PAID'" class="qr-section">
-                <h3>Mã QR Code</h3>
-                <img 
-                  :src="getQRCodeUrl(ticket.qrCode || `TICKET_${ticket.ticketId}`)"
-                  alt="QR Code"
-                  class="qr-image"
-                />
-                <p class="qr-note">Xuất trình mã này khi lên xe</p>
+              <!-- QR Section -->
+              <div class="qr-section" v-if="ticket.qrCode">
+                <h3>QR Code Check-in</h3>
+                <img :src="`data:image/png;base64,${ticket.qrCode}`" alt="QR Code" class="qr-image" />
+                <p class="qr-note">Quét mã này để check-in tại bến xe</p>
               </div>
             </div>
+          </div>
 
-            <div class="result-actions">
-              <button @click="resetSearch" class="btn btn-outline">
-                Tra cứu vé khác
-              </button>
-            </div>
+          <div v-else class="no-result">
+            Không tìm thấy vé với mã này
           </div>
         </div>
       </div>
@@ -122,61 +130,95 @@
 
 <script setup>
 import { ref } from 'vue'
+import api from '@/services/api'
+import { useAuthStore } from '@/stores/AuthStore'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
-import api from '@/services/api'
 
 const searchQuery = ref('')
 const searching = ref(false)
 const searched = ref(false)
 const ticket = ref(null)
-const error = ref('')
+const error = ref(null)
+
+const authStore = useAuthStore()
 
 const searchTicket = async () => {
-  if (!searchQuery.value.trim()) {
-    error.value = 'Vui lòng nhập mã vé '
-    return
-  }
-
   searching.value = true
   searched.value = true
-  error.value = ''
+  error.value = null
   ticket.value = null
 
   try {
-    // Try to find ticket by QR code or email
-    // Option 1: Search by ticket ID if it's a number
-    if (/^\d+$/.test(searchQuery.value)) {
-      const res = await api.get(`/tickets/${searchQuery.value}`)
-      ticket.value = res.data.data
-    } 
+    const query = searchQuery.value.trim()
 
-    // Option 3: Treat as QR code
-    else {
-      error.value = 'Không tìm thấy vé. Vui lòng kiểm tra lại mã vé.'
+    if (!query) {
+      throw new Error('Vui lòng nhập mã vé')
     }
+
+    if (!/^\d+$/.test(query)) {
+      throw new Error('Mã vé không hợp lệ. Vui lòng nhập số.')
+    }
+
+    // Lấy thông tin vé từ API công khai
+    const res = await api.get(`/tickets/track/${query}`)
+    const ticketData = res.data.data
+
+    if (!ticketData) {
+      error.value = 'Không tìm thấy vé với mã này'
+      return
+    }
+
+    // Lấy departureTime từ API /trips/{tripId}
+    let departureTime = null
+    if (ticketData.tripId) {
+      try {
+        const tripRes = await api.get(`/trips/${ticketData.tripId}`)
+        const tripData = tripRes.data.data || tripRes.data
+        departureTime = tripData.departureTime
+        console.log(`Trip #${ticketData.tripId} departure:`, departureTime)
+      } catch (e) {
+        console.warn(`Không load trip #${ticketData.tripId}:`, e)
+      }
+    }
+
+    // Merge dữ liệu
+    ticket.value = {
+      ...ticketData,
+      departureTime: departureTime || ticketData.departureTime
+    }
+
+    console.log('Ticket loaded:', ticket.value)
   } catch (err) {
     console.error('Search error:', err)
-    error.value = err.response?.data?.message || 'Không tìm thấy vé. Vui lòng kiểm tra lại thông tin.'
+    error.value = err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tra cứu vé'
   } finally {
     searching.value = false
   }
 }
 
-const resetSearch = () => {
-  searchQuery.value = ''
-  searched.value = false
-  ticket.value = null
-  error.value = ''
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'PAID': return 'success'
+    case 'PENDING': return 'warning'
+    case 'CANCELLED': return 'danger'
+    default: return ''
+  }
 }
 
-const getQRCodeUrl = (code) => {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${code}`
+const getStatusText = (status) => {
+  switch (status) {
+    case 'PAID': return 'Đã thanh toán'
+    case 'PENDING': return 'Chờ thanh toán'
+    case 'CANCELLED': return 'Đã hủy'
+    default: return status
+  }
 }
 
-const formatDate = (date) => {
+const formatDateTime = (date) => {
   if (!date) return 'N/A'
   return new Date(date).toLocaleString('vi-VN', {
+    weekday: 'short',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -185,69 +227,87 @@ const formatDate = (date) => {
   })
 }
 
-const getStatusClass = (status) => {
-  const map = {
-    'PENDING': 'warning',
-    'PAID': 'success',
-    'CANCELLED': 'danger',
-    'COMPLETED': 'info'
-  }
-  return map[status] || 'default'
+const formatDate = (date) => {
+  if (!date) return 'N/A'
+  return new Date(date).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
 }
 
-const getStatusText = (status) => {
-  const map = {
-    'PENDING': 'Chờ thanh toán',
-    'PAID': 'Đã thanh toán',
-    'CANCELLED': 'Đã hủy',
-    'COMPLETED': 'Hoàn thành'
-  }
-  return map[status] || status
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('vi-VN').format(amount)
 }
 </script>
 
 <style scoped>
+.page-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 .track-page {
-  padding: 40px 20px;
-  min-height: calc(100vh - 200px);
-  background: var(--gray-50);
+  flex: 1;
+  padding: 40px 0;
+  background: #f8fafc;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 .page-title {
   font-size: 32px;
   font-weight: 800;
+  color: var(--gray-900);
   margin-bottom: 8px;
   text-align: center;
 }
 
 .page-subtitle {
+  font-size: 16px;
   color: var(--gray-600);
-  margin-bottom: 32px;
   text-align: center;
+  margin-bottom: 32px;
 }
 
 .search-card {
-  max-width: 600px;
-  margin: 0 auto 32px;
   background: white;
-  padding: 32px;
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
+  padding: 32px;
+  max-width: 600px;
+  margin: 0 auto 40px;
 }
 
 .search-form {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: end;
+  gap: 16px;
 }
 
-.form-group {
-  flex: 1;
+.form-input {
+  padding: 12px 16px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.form-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-group label {
@@ -264,6 +324,18 @@ const getStatusText = (status) => {
   padding: 12px;
   background: var(--gray-50);
   border-radius: 6px;
+}
+
+.alert {
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
 }
 
 /* Ticket Result */
@@ -352,18 +424,6 @@ const getStatusText = (status) => {
   font-size: 17px;
 }
 
-.info-item .value.success {
-  color: var(--success-color);
-}
-
-.info-item .value.warning {
-  color: var(--warning-color);
-}
-
-.info-item .value.danger {
-  color: var(--danger-color);
-}
-
 /* QR Section */
 .qr-section {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
@@ -396,10 +456,14 @@ const getStatusText = (status) => {
   font-weight: 600;
 }
 
-.result-actions {
-  padding: 20px 24px;
-  border-top: 1px solid var(--gray-200);
+.no-result {
   text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  color: var(--gray-600);
+  font-size: 16px;
 }
 
 @media (max-width: 768px) {

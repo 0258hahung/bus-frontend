@@ -12,6 +12,15 @@ import Register from '@/views/auth/Register.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
 
 const routes = [
+
+  {
+    path: '/payment/vnpay/return',
+    component: () => import('@/views/customer/payment/VNPayReturn.vue')
+  },
+  {
+    path: '/payment/momo/return',
+    component: () => import('@/views/customer/payment/MomoReturn.vue')
+  },
   // Customer Routes
   { path: '/', name: 'Home', component: HomePage },
   { path: '/my-tickets', component: () => import('@/views/customer/MyTickets.vue'), meta: { requiresAuth: true } },
@@ -67,5 +76,7 @@ router.beforeEach((to, from, next) => {
     next()
   }
 })
+
+
 
 export default router

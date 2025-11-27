@@ -39,4 +39,9 @@ export const busService = {
     const response = await api.delete(`${BUS_URL}/${busId}`);
     return response.data; 
   },
+
+   exportBuses: async () => {
+        const response = await api.get('/export/buses', { responseType: 'arraybuffer' });
+        return response.data;
+    }
 };

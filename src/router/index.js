@@ -32,6 +32,7 @@ const routes = [
     meta: { requiresAdmin: true },
     children: [
       { path: '', name: 'AdminDashboard', component: AdminDashboard },
+
       { path: 'users', component: () => import('@/views/admin/UserManagementView.vue') },
       { path: 'buses', component: () => import('@/views/admin/BusManagementView.vue') },
       { path: 'routes', component: () => import('@/views/admin/RouteManagementView.vue') },

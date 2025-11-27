@@ -169,6 +169,23 @@
   background: #dc2626;
 }
 
+.export-btn {
+    background-color: #f59e0b; /* Màu cam */
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.export-btn:hover {
+    background-color: #d97706;
+}
+
+
 /* Quick Actions Grid */
 .quick-actions-grid {
   display: grid;

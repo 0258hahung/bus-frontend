@@ -35,4 +35,9 @@ export const userService = {
     const response = await api.patch(`${USER_URL}/${userId}/status`, { is_active: isActive });
     return response.data; 
   },
+
+  exportUsers: async () => {
+        const response = await api.get('/export/users', { responseType: 'arraybuffer' });
+        return response.data;
+    }
 };

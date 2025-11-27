@@ -6,6 +6,10 @@
         <span class="btn-icon">➕</span>
         Thêm Tuyến xe mới
       </button>
+      <button @click="exportRoutesExcel" class="export-btn">
+            <span class="btn-icon">📄</span>
+            Xuất Excel
+      </button>
     </div>
 
     <div class="table-container">
@@ -147,6 +151,29 @@ const deleteRoute = async (id) => {
 onMounted(() => {
     fetchRoutes()
 })
+
+const downloadExcel = (blobData, fileName) => {
+    const blob = new Blob([blobData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+};
+
+const exportRoutesExcel = async () => {
+    try {
+        const data = await routeService.exportRoutes();
+        downloadExcel(data, 'routes.xlsx');
+    } catch (error) { console.error(error); }
+};
+
+
+
+
 </script>
 
 <style scoped>

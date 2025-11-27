@@ -34,4 +34,9 @@ export const routeService = {
     const response = await api.delete(`${ROUTE_URL}/${routeId}`);
     return response.data; 
   },
+
+  exportRoutes: async () => {
+        const response = await api.get('/export/routes', { responseType: 'arraybuffer' });
+        return response.data;
+    }
 };

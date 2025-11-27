@@ -6,6 +6,10 @@
         <span class="btn-icon">➕</span>
         Thêm Chuyến xe mới
       </button>
+      <button @click="exportUsersExcel" class="export-btn">
+        <span class="btn-icon">📄</span>
+        Xuất Excel
+      </button>
     </div>
 
     <div class="table-container">
@@ -266,6 +270,29 @@ onMounted(async () => {
     // Sau đó tải Trips
     await fetchTrips();
 })
+
+import api from '@/services/api' // Hoặc path tới api chung nếu có
+
+const downloadExcel = (blobData, fileName) => {
+    const blob = new Blob([blobData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+};
+
+const exportTripsExcel = async () => {
+    try {
+        const data = await tripService.exportTrips();
+        downloadExcel(data, 'trips.xlsx');
+    } catch (error) { console.error(error); }
+};
+
+
 </script>
 
 <style scoped>

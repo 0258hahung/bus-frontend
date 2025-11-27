@@ -6,7 +6,12 @@
         <span class="btn-icon">➕</span>
         Thêm Người dùng
       </button>
+      <button @click="exportUsersExcel" class="export-btn">
+        <span class="btn-icon">📄</span>
+        Xuất Excel
+      </button>
     </div>
+
 
     <div class="table-container">
       <table class="data-table">
@@ -165,6 +170,31 @@ const toggleStatus = async (user) => {
 onMounted(() => {
     fetchUsers()
 })
+
+const downloadExcel = (blobData, fileName) => {
+    const blob = new Blob([blobData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+};
+
+const exportUsersExcel = async () => {
+    try {
+        const data = await userService.exportUsers();
+        downloadExcel(data, 'users.xlsx');
+    } catch (error) {
+        console.error("Xuất Excel thất bại:", error);
+        alert('Xuất Excel thất bại. Kiểm tra console.');
+    }
+};
+
+
+
 </script>
 
 <style scoped>

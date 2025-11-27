@@ -33,5 +33,8 @@ export const tripService = {
     return response.data; 
   },
   
-  // 🛑 METHOD updateTripStatus ĐÃ BỊ LOẠI BỎ ĐỂ TRÁNH NHẦM LẪN
+  exportTrips: async () => {
+        const response = await api.get('/export/trips', { responseType: 'arraybuffer' });
+        return response.data;
+    }
 };

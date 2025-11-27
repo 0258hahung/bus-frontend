@@ -48,7 +48,7 @@
                   <span :class="['status-badge', getStatusClass(ticket.status)]">
                     {{ getStatusText(ticket.status) }}
                   </span>
-                  <span class="ticket-code">{{ `TICKET_${ticket.ticketId}`|| ticket.qrCode  }}</span>
+                  <span class="ticket-code">{{ `TICKET_${ticket.ticketId}` }}</span>
                 </div>
                 <div class="ticket-date">
                   {{ formatDate(ticket.bookedAt) }}
@@ -67,7 +67,11 @@
                       <span class="detail-icon">🕐</span>
                       <div class="detail-content">
                         <span class="detail-label">Giờ khởi hành</span>
-                        <span class="detail-value">{{ formatTime(ticket.tripDepartureTime) }}</span>
+                        <span class="detail-value">
+                          {{ ticket.departureTime 
+                            ? formatDateTime(ticket.departureTime) 
+                            : 'Chưa xác định' }}
+                        </span>
                       </div>
                     </div>
 
@@ -102,17 +106,17 @@
                 </div>
 
                 <!-- QR Code for PAID tickets -->
-                <div v-if="ticket.status === 'PAID'" class="qr-section">
+                <div v-if="ticket.status === 'PAID' && ticket.qrCode" class="qr-section">
                   <div class="qr-header">
                     <p class="qr-label">📱 Xuất trình mã QR khi lên xe</p>
                   </div>
                   <div class="qr-code">
                     <img 
-                      :src="getQRCodeUrl(ticket.qrCode || `TICKET_${ticket.ticketId}`)" 
+                      :src="`data:image/png;base64,${ticket.qrCode}`" 
                       :alt="`QR Code ${ticket.ticketId}`"
                       loading="lazy"
                     />
-                    <p class="qr-code-text">{{ ticket.qrCode || `TICKET_${ticket.ticketId}` }}</p>
+                    <p class="qr-code-text">{{ `TICKET_${ticket.ticketId}` }}</p>
                   </div>
                 </div>
 
@@ -207,30 +211,48 @@ onMounted(async () => {
 const loadTickets = async () => {
   loading.value = true
   error.value = ''
-  
+
   try {
     const res = await api.get(`/tickets/user/${authStore.user.userId}`)
-    const ticketsData = res.data.data || []
-    
-    // Map data từ TicketDTO backend
-    tickets.value = ticketsData.map(t => ({
-      ticketId: t.ticketId,
-      userId: t.userId,
-      fullName: t.fullName,
-      email: t.email,
-      tripId: t.tripId,
-      routeInfo: t.routeInfo,
-      licensePlate: t.licensePlate,
-      deck: t.deck,
-      seatNumber: t.seatNumber,
-      qrCode: t.qrCode,
-      status: t.status,
-      bookedAt: t.bookedAt,
-      // Giá vé cần lấy từ trip hoặc payment
-      price: 350000, // Tạm hardcode, nên có API trả về
-      tripDepartureTime: null // Backend cần thêm field này vào TicketDTO
-    }))
-    
+    const basicTickets = res.data.data || []
+
+    // Enrich tickets with detailed information
+    const detailedTickets = []
+    for (const t of basicTickets) {
+      let departureTime = null
+      
+      // Gọi API /trips/{tripId} để lấy departureTime
+      if (t.tripId) {
+        try {
+          const tripRes = await api.get(`/trips/${t.tripId}`)
+          const tripData = tripRes.data.data || tripRes.data
+          departureTime = tripData.departureTime
+          console.log(`Trip #${t.tripId} departure:`, departureTime)
+        } catch (e) {
+          console.warn(`Không load trip #${t.tripId}:`, e)
+        }
+      }
+
+      detailedTickets.push({
+        ticketId: t.ticketId,
+        userId: t.userId,
+        fullName: t.fullName,
+        email: t.email,
+        tripId: t.tripId,
+        routeInfo: t.routeInfo,
+        licensePlate: t.licensePlate,
+        deck: t.deck,
+        seatNumber: t.seatNumber,
+        qrCode: t.qrCode,
+        status: t.status,
+        bookedAt: t.bookedAt,
+        price: t.price || 350000,
+        departureTime: departureTime || t.bookedAt  // Fallback về bookedAt nếu không có
+      })
+    }
+
+    tickets.value = detailedTickets
+    // Sắp xếp theo thời gian đặt vé mới nhất
     tickets.value.sort((a, b) => new Date(b.bookedAt) - new Date(a.bookedAt))
     
     console.log('Tickets loaded:', tickets.value)
@@ -244,8 +266,8 @@ const loadTickets = async () => {
 
 const canCancel = (ticket) => {
   // Chỉ cho phép hủy nếu còn > 2h trước giờ đi
-  if (!ticket.tripDepartureTime) return true
-  const departureTime = new Date(ticket.tripDepartureTime)
+  if (!ticket.departureTime) return true
+  const departureTime = new Date(ticket.departureTime)
   const now = new Date()
   const hoursUntil = (departureTime - now) / (1000 * 60 * 60)
   return hoursUntil > 2
@@ -273,13 +295,9 @@ const downloadTicket = (ticket) => {
   // TODO: Implement PDF download
 }
 
-const getQRCodeUrl = (code) => {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${code}`
-}
-
-const formatTime = (time) => {
-  if (!time) return 'N/A'
-  return new Date(time).toLocaleString('vi-VN', {
+const formatDateTime = (dateTime) => {
+  if (!dateTime) return 'N/A'
+  return new Date(dateTime).toLocaleString('vi-VN', {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -394,6 +412,39 @@ const getStatusText = (status) => {
 
 .filter-tab.active .count {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--gray-200);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Alert */
+.alert {
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
 }
 
 /* Tickets List */

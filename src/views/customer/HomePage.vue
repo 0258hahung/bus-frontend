@@ -40,7 +40,7 @@
                 <div class="trip-body">
                   <div class="trip-details">
                     <div class="detail-item">
-                      <span class="detail-icon">🕐</span>
+                      <span class="detail-icon">Giờ khởi hành</span>
                       <div>
                         <p class="detail-label">Giờ khởi hành</p>
                         <p class="detail-value">{{ formatTime(trip.departureTime) }}</p>
@@ -48,7 +48,7 @@
                     </div>
 
                     <div class="detail-item">
-                      <span class="detail-icon">🚌</span>
+                      <span class="detail-icon">Loại xe</span>
                       <div>
                         <p class="detail-label">Loại xe</p>
                         <p class="detail-value">{{ trip.busType || 'Giường nằm' }}</p>
@@ -56,7 +56,7 @@
                     </div>
 
                     <div class="detail-item">
-                      <span class="detail-icon">⏱️</span>
+                      <span class="detail-icon">Thời gian</span>
                       <div>
                         <p class="detail-label">Thời gian</p>
                         <p class="detail-value">{{ trip.duration || '6-8 giờ' }}</p>
@@ -79,7 +79,7 @@
           </div>
 
           <div v-else class="no-results">
-            <div class="no-results-icon">🔍</div>
+            <div class="detail-icon">Không tìm thấy chuyến xe phù hợp</div>
             <h3>Không tìm thấy chuyến xe phù hợp</h3>
             <p>Vui lòng thử tìm kiếm với điểm đến khác hoặc ngày khác</p>
             <button @click="resetSearch" class="btn btn-primary mt-3">
@@ -119,6 +119,9 @@
     </main>
 
     <Footer />
+
+    <!-- CHATBOT BONG BÓNG – HIỆN Ở GÓC DƯỚI PHẢI -->
+    <Chatbot />
   </div>
 </template>
 
@@ -127,6 +130,7 @@ import { ref } from 'vue'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import SearchForm from '@/components/SearchForm.vue'
+import Chatbot from '@/components/Chatbot.vue'   // ĐÃ THÊM CHATBOT
 import api from '@/services/api'
 
 const trips = ref([])
@@ -153,13 +157,10 @@ const handleSearch = async (form) => {
   try {
     const res = await api.get('/trips/search', { params: form })
     trips.value = res.data.data || []
-    
-    if (trips.value.length === 0) {
-      error.value = ''
-    }
   } catch (err) {
     console.error('Search error:', err)
     error.value = err.response?.data?.message || 'Tìm kiếm thất bại. Vui lòng thử lại!'
+    trips.value = []
   } finally {
     loading.value = false
   }
@@ -172,13 +173,10 @@ const resetSearch = () => {
 }
 
 const formatTime = (time) => {
-  if (!time) return ''
-  return new Date(time).toLocaleString('vi-VN', {
+  if (!time) return 'Chưa xác định'
+  return new Date(time).toLocaleTimeString('vi-VN', {
     hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
+    minute: '2-digit'
   })
 }
 
@@ -196,6 +194,7 @@ const formatPrice = (price) => {
   return Number(price || 0).toLocaleString('vi-VN')
 }
 </script>
+
 
 <style scoped>
 .hero-section {

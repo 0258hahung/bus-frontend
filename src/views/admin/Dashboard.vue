@@ -45,7 +45,7 @@
           <input type="date" v-model="endDate" />
           <button class="filter-btn" @click="loadRevenueChart">Xem biểu đồ</button>
         </div>
-        <canvas ref="revenueChart" height="150"></canvas>
+        <canvas ref="revenueChartRef" height="150"></canvas>
       </div>
 
       <!-- Biểu đồ số vé bán theo tuyến -->
